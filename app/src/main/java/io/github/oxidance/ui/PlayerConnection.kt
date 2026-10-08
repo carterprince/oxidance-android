@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import android.os.Bundle
@@ -39,7 +40,7 @@ class PlayerConnection(context: Context) {
     var currentIndex by mutableIntStateOf(0); private set
     var hasPrevious by mutableStateOf(false); private set
     var hasNext by mutableStateOf(false); private set
-    /** Bumped when the queue's source should be described again, e.g. "Liked songs". */
+    /** Where the queue came from, e.g. "Liked songs"; kept by the service as playlist metadata. */
     var source by mutableStateOf(""); private set
 
     /** Runs before playback starts, e.g. to ask for notification permission. */
@@ -67,8 +68,10 @@ class PlayerConnection(context: Context) {
     private fun refresh() {
         val player = controller ?: return
         current = player.currentMediaItem?.song
+        source = player.playlistMetadata.title?.toString() ?: ""
         playing = player.isPlaying
-        playWhenReady = player.playWhenReady
+        // After an error the player is idle but still "wants" to play; show Play so the user can retry.
+        playWhenReady = player.playWhenReady && player.playbackState != Player.STATE_IDLE
         buffering = player.playbackState == Player.STATE_BUFFERING
         durationMs = player.duration.takeIf { it > 0 } ?: 0
         speed = player.playbackParameters.speed
@@ -111,8 +114,8 @@ class PlayerConnection(context: Context) {
             return
         }
         if (autoplay) beforeStart()
-        this.source = source
         player.setMediaItems(songs.map { it.toMediaItem() }, start, 0)
+        player.playlistMetadata = MediaMetadata.Builder().setTitle(source).build()
         player.shuffleModeEnabled = shuffle
         player.prepare()
         player.playWhenReady = autoplay
@@ -125,7 +128,8 @@ class PlayerConnection(context: Context) {
 
     fun togglePlayback() {
         val player = controller ?: return
-        if (player.playbackState == Player.STATE_IDLE) player.prepare()
+        // Retrying after an error resumes where playback stopped.
+        if (player.playbackState == Player.STATE_IDLE) { player.prepare(); player.playWhenReady = true; return }
         if (player.playbackState == Player.STATE_ENDED) player.seekToDefaultPosition(player.currentMediaItemIndex)
         player.playWhenReady = !player.playWhenReady
     }

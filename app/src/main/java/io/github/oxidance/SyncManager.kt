@@ -1,10 +1,7 @@
 package io.github.oxidance
 
-import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Network
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import io.github.oxidance.core.Dav
 import io.github.oxidance.core.Library
 import io.github.oxidance.core.Sync
@@ -38,12 +35,7 @@ class SyncManager(private val app: App) {
     private var periodic: Job? = null
     private val baseFile get() = File(app.filesDir, "sync-base.json")
 
-    private val secrets: SharedPreferences by lazy {
-        EncryptedSharedPreferences.create(app, "sync-secrets",
-            MasterKey.Builder(app).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
-    }
+    private val secrets by lazy { Secrets(app) }
 
     private fun secretKey(url: String, username: String) = "$url\n$username"
 
@@ -60,7 +52,7 @@ class SyncManager(private val app: App) {
         val username = app.settings.syncUsername
         if (url.isEmpty()) return
         app.scope.launch(Dispatchers.IO) {
-            val password = runCatching { secrets.getString(secretKey(url, username), null) }.getOrNull()
+            val password = secrets.get(secretKey(url, username))
             if (password == null) {
                 set(false, true, "The sync password is missing. Disconnect and connect again.")
                 return@launch
@@ -128,7 +120,7 @@ class SyncManager(private val app: App) {
     suspend fun connect(url: String, username: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val connected = Dav.connect(url, username, password)
-            secrets.edit().putString(secretKey(connected.url.toString(), connected.username), password).commit()
+            secrets.put(secretKey(connected.url.toString(), connected.username), password)
             app.settings.syncUrl = connected.url.toString()
             app.settings.syncUsername = connected.username
             synchronized(this@SyncManager) {
@@ -147,7 +139,7 @@ class SyncManager(private val app: App) {
             running = false
             dav = null
         }
-        if (previous != null) runCatching { secrets.edit().remove(secretKey(previous.url.toString(), previous.username)).apply() }
+        if (previous != null) secrets.remove(secretKey(previous.url.toString(), previous.username))
         app.settings.syncUrl = ""
         app.settings.syncUsername = ""
         set(false, false, NOT_CONNECTED)

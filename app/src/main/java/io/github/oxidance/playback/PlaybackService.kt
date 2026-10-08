@@ -119,7 +119,7 @@ class PlaybackService : MediaSessionService() {
         session = MediaSession.Builder(this, player).setSessionActivity(activity).setCallback(object : MediaSession.Callback {
             // Controllers send items without local configuration; rebuild them from their song metadata.
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
-                return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
                         .add(SessionCommand(INSERT, Bundle.EMPTY)).build())
                     .build()

@@ -40,7 +40,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -195,16 +204,23 @@ fun PlaylistPicker(song: Song, viewModel: MainViewModel, onDismiss: () -> Unit) 
 /** Asks for a playlist name; `submit` returns an error to show, or null when done. */
 @Composable
 fun NameDialog(title: String, action: String, initial: String, onDismiss: () -> Unit, submit: (String) -> String?) {
-    var name by remember { mutableStateOf(initial) }
+    // The current name starts selected, so typing replaces it.
+    var name by remember { mutableStateOf(TextFieldValue(initial, TextRange(0, initial.length))) }
     var error by remember { mutableStateOf<String?>(null) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    fun confirm() { error = submit(name.text); if (error == null) onDismiss() }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
             OutlinedTextField(name, { name = it; error = null }, label = { Text("Name") }, singleLine = true,
-                isError = error != null, supportingText = error?.let { { Text(it) } }, modifier = Modifier.fillMaxWidth())
+                isError = error != null, supportingText = error?.let { { Text(it) } },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { confirm() }),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus))
         },
-        confirmButton = { TextButton(onClick = { error = submit(name); if (error == null) onDismiss() }) { Text(action) } },
+        confirmButton = { TextButton(onClick = ::confirm) { Text(action) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

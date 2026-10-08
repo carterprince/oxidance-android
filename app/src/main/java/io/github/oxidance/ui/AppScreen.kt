@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -62,13 +63,14 @@ fun AppScreen(viewModel: MainViewModel, player: PlayerConnection, openPlayerRequ
     var picking by remember { mutableStateOf<Song?>(null) }
     val scope = rememberCoroutineScope()
 
-    // The full player's position: 0 when open, 1 when closed.
-    val closed = remember { Animatable(1f) }
-    fun openPlayer() = scope.launch { closed.animateTo(0f, tween(300)) }
-    fun closePlayer() = scope.launch { closed.animateTo(1f, tween(250)) }
+    // The full player's position: 0 when open, 1 when closed. Whether it is open survives recreation.
+    var playerOpen by rememberSaveable { mutableStateOf(false) }
+    val closed = remember { Animatable(if (playerOpen) 0f else 1f) }
+    fun openPlayer() = scope.launch { playerOpen = true; closed.animateTo(0f, tween(300)) }
+    fun closePlayer() = scope.launch { playerOpen = false; closed.animateTo(1f, tween(250)) }
     LaunchedEffect(openPlayerRequests) { if (openPlayerRequests > 0 && player.current != null) openPlayer() }
     val song = player.current
-    LaunchedEffect(song == null) { if (song == null) closed.snapTo(1f) }
+    LaunchedEffect(song == null) { if (song == null && !playerOpen) closed.snapTo(1f) }
 
     // Media notifications need permission on Android 13 and later; ask the first time something plays.
     var askedNotifications by remember { mutableStateOf(false) }
