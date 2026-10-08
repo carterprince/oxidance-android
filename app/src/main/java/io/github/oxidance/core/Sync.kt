@@ -56,8 +56,10 @@ object Sync {
             runCatching { dav.unlock(LIBRARY, token) }
         }
         saveBase(baseFile, url, merged)
-        onMerged(merged)
+        // Refresh the server's song list first, so downloads queued for the merged
+        // library find songs other devices uploaded instead of fetching them from YouTube.
         val listing = dav.songs(true)
+        onMerged(merged)
         val songs = merged.savedSongs()
         val files = FileIndex.scan(music)
         var uploaded = 0
