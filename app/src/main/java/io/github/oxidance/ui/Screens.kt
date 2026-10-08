@@ -49,7 +49,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -123,14 +122,9 @@ private fun PageBar(title: String, onBack: (() -> Unit)?, actions: @Composable (
 }
 
 @Composable
-private fun PlayButtons(songs: List<Song>, onPlay: () -> Unit, onShuffle: () -> Unit) {
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = onPlay, enabled = songs.isNotEmpty()) {
-            Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("Play")
-        }
-        FilledTonalButton(onClick = onShuffle, enabled = songs.isNotEmpty()) {
-            Icon(Icons.Default.Shuffle, null); Spacer(Modifier.width(6.dp)); Text("Shuffle")
-        }
+private fun PlayButton(songs: List<Song>, onPlay: () -> Unit) {
+    Button(onClick = onPlay, enabled = songs.isNotEmpty(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("Play")
     }
 }
 
@@ -303,7 +297,7 @@ fun CollectionScreen(viewModel: MainViewModel, lists: Lists, player: PlayerConne
                     Text(songCount(songs.size) + if (songs.isNotEmpty()) " · ${songs.count { lists.files.file(it.videoId) != null }} downloaded" else "",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp))
-                    PlayButtons(shown, { player.start(shown, 0, title, shuffle = false) }, { player.shufflePlay(shown, title) })
+                    PlayButton(shown) { player.playAll(shown, title) }
                 }
             }
             songItems(shown, pageLists)
@@ -367,8 +361,7 @@ fun ArtistScreen(viewModel: MainViewModel, lists: Lists, player: PlayerConnectio
                             TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Less" else "More") }
                         }
                     }
-                    PlayButtons(profile.songs, { player.start(profile.songs, 0, profile.artist.link.name, shuffle = false) },
-                        { player.shufflePlay(profile.songs, profile.artist.link.name) })
+                    PlayButton(profile.songs) { player.playAll(profile.songs, profile.artist.link.name) }
                     Text("Top songs", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 }
                 songItems(profile.songs, Lists(lists.library, lists.files, lists.pending, lists.playing, actions))
@@ -398,7 +391,7 @@ fun AlbumScreen(viewModel: MainViewModel, lists: Lists, player: PlayerConnection
                         }
                         Text(page.details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     }
-                    PlayButtons(page.songs, { player.start(page.songs, 0, page.album.title, shuffle = false) }, { player.shufflePlay(page.songs, page.album.title) })
+                    PlayButton(page.songs) { player.playAll(page.songs, page.album.title) }
                 }
                 songItems(page.songs, Lists(lists.library, lists.files, lists.pending, lists.playing, actions))
             }

@@ -121,9 +121,11 @@ class PlayerConnection(context: Context) {
         player.playWhenReady = autoplay
     }
 
-    fun shufflePlay(songs: List<Song>, source: String) {
+    /** Plays a whole list, following the saved shuffle setting: a random first song when it is on. */
+    fun playAll(songs: List<Song>, source: String) {
         if (songs.isEmpty()) return
-        start(songs, songs.indices.random(), source, shuffle = true)
+        val shuffle = App.instance.settings.shuffle
+        start(songs, if (shuffle) songs.indices.random() else 0, source, shuffle = shuffle)
     }
 
     fun togglePlayback() {
