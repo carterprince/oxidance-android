@@ -1,6 +1,6 @@
 # Oxidance for Android
 
-An Android port of [Oxidance](../oxidance), the YouTube Music player. Search
+An Android port of Oxidance, the YouTube Music player for Linux. Search
 YouTube Music, keep a library of liked songs and playlists, listen offline, and
 sync with Oxidance on your computer through your own WebDAV server.
 
