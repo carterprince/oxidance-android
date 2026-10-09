@@ -71,7 +71,8 @@ Songs are saved in the app's Music folder
 is uninstalled. The sync password is encrypted with a key held in the Android
 Keystore.
 
-## License note
+## License
 
-NewPipeExtractor is GPL-3.0, so distributed builds of this app are covered by
-the GPL.
+Licensed under the GNU General Public License, version 3 or later. See [LICENSE](LICENSE).
+
+NewPipeExtractor, which this app uses, is also GPL-3.0.
