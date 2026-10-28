@@ -25,6 +25,9 @@ Oxidance is an unofficial client and is not affiliated with YouTube or Google.
 - **Sync:** connect a WebDAV server (for example `rclone serve webdav`) in
   Settings. The library merges with other devices, and songs are shared through
   the server's `songs/` folder. The desktop app reads and writes the same files.
+- **Discord:** with an account token in Settings, the playing song shows on
+  your Discord profile, without the Discord app, like the desktop app. Discord
+  may suspend accounts whose token is used outside its app.
 
 ## Build and install
 

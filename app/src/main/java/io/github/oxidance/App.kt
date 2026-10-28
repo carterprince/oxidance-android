@@ -34,6 +34,7 @@ class App : Application() {
     lateinit var library: LibraryStore private set
     lateinit var downloads: DownloadQueue private set
     lateinit var sync: SyncManager private set
+    lateinit var discord: DiscordPresence private set
     /** Short messages for the UI to show as snackbars. */
     val messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
 
@@ -47,9 +48,11 @@ class App : Application() {
         library = LibraryStore(File(filesDir, "library.json"), this)
         sync = SyncManager(this)
         downloads = DownloadQueue(this)
+        discord = DiscordPresence(this)
         scope.launch(Dispatchers.IO) { Streams.init() }
         downloads.resume()
         sync.restore()
+        discord.restore()
     }
 
     fun toast(message: String) { messages.tryEmit(message) }

@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudDone
@@ -87,6 +88,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.oxidance.App
 import io.github.oxidance.BuildConfig
+import io.github.oxidance.DiscordPresence
 import io.github.oxidance.core.Album
 import io.github.oxidance.core.FileIndex
 import io.github.oxidance.core.Library
@@ -461,6 +463,8 @@ fun SettingsScreen(viewModel: MainViewModel, lists: Lists, contentPadding: Paddi
                     }
                 }
                 HorizontalDivider(Modifier.padding(vertical = 16.dp))
+                DiscordSettings()
+                HorizontalDivider(Modifier.padding(vertical = 16.dp))
                 Text("Storage", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 val saved = lists.library.savedSongs()
@@ -481,4 +485,45 @@ fun SettingsScreen(viewModel: MainViewModel, lists: Lists, contentPadding: Paddi
         confirmButton = { TextButton(onClick = { disconnecting = false; app.sync.disconnect() }) { Text("Disconnect") } },
         dismissButton = { TextButton(onClick = { disconnecting = false }) { Text("Cancel") } },
     )
+}
+
+@Composable
+private fun DiscordSettings() {
+    val discord = App.instance.discord
+    val status by discord.token.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var token by rememberSaveable { mutableStateOf("") }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    fun save(value: String) {
+        saving = true
+        scope.launch {
+            discord.save(value).onSuccess { token = "" }.onFailure { error = "Could not save the token: ${it.message}" }
+            saving = false
+        }
+    }
+    Text("Discord", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+    Text("Show the song you’re listening to on your Discord profile, even when Discord isn’t open. " +
+        "Discord may suspend accounts whose token is used outside its app.",
+        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp))
+    if (status == DiscordPresence.Token.SAVED) {
+        ListItem(headlineContent = { Text("Rich presence is on") }, supportingContent = { Text("Your account token is saved on this device.") },
+            leadingContent = { Icon(Icons.Default.CheckCircle, null) })
+        OutlinedButton(onClick = { save("") }, enabled = !saving, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Remove token") }
+    } else {
+        if (status == DiscordPresence.Token.REJECTED) Text("Discord rejected the saved token. Enter a new one.",
+            color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(token, { token = it; error = null }, label = { Text("Account token") }, singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                modifier = Modifier.fillMaxWidth())
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            Button(enabled = !saving && token.isNotBlank(), onClick = { save(token) }) { Text("Save") }
+            Text("The token is encrypted with a key kept in Android's keystore.", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }

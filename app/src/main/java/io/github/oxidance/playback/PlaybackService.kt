@@ -23,6 +23,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import io.github.oxidance.App
 import io.github.oxidance.MainActivity
+import io.github.oxidance.core.DiscordActivity
 import io.github.oxidance.core.FileIndex
 import io.github.oxidance.core.LibraryJson
 import io.github.oxidance.core.Song
@@ -99,6 +100,9 @@ class PlaybackService : MediaSessionService() {
                 if (shuffleModeEnabled) reshuffle(player)
             }
 
+            // Every batch of changes, including seeks and speed changes; Discord is only told when what it shows changes.
+            override fun onEvents(player: Player, events: Player.Events) { app.discord.update(discordActivity(player)) }
+
             override fun onPlayerError(error: PlaybackException) {
                 val id = player.currentMediaItem?.mediaId
                 val saved = id != null && app.downloads.files.value.file(id) != null
@@ -167,6 +171,24 @@ class PlaybackService : MediaSessionService() {
         player.setShuffleOrder(DefaultShuffleOrder(order.toIntArray(), Random.nextLong()))
     }
 
+    /** What Discord should show: the playing song and where it is in its timeline, or nothing while paused. */
+    private fun discordActivity(player: Player): DiscordActivity? {
+        val playing = player.playWhenReady && player.playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE
+            && (player.playbackState == Player.STATE_READY || player.playbackState == Player.STATE_BUFFERING)
+        if (!playing) return null
+        val song = player.currentMediaItem?.song ?: return null
+        if (song.title.isBlank()) return null
+        val speed = player.playbackParameters.speed.coerceAtLeast(0.01f)
+        val start = System.currentTimeMillis() - (player.currentPosition / speed).toLong()
+        val end = player.duration.takeIf { it != C.TIME_UNSET }?.let { start + (it / speed).toLong() }
+        val artist = if (song.artists.isEmpty()) song.artist else song.artists.joinToString { it.name }
+        // Discord fetches art itself, so only public images work, not downloaded copies.
+        // The larger version doesn't always exist, so the original is the fallback.
+        val art = listOfNotNull(song.albumArtUrl).filter { it.startsWith("https://") || it.startsWith("http://") }
+            .flatMap { listOf(highQualityArtUrl(it), it) }.distinct()
+        return DiscordActivity(song.title, artist?.takeIf { it.isNotBlank() }, start, end, art, speed)
+    }
+
     /** Plays the saved file when there is one, otherwise a freshly resolved YouTube stream. */
     private fun resolve(spec: DataSpec): DataSpec {
         if (spec.uri.scheme != "oxidance") return spec
@@ -192,6 +214,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        App.instance.discord.signOut()
         session?.run {
             player.release()
             release()
