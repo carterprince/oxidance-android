@@ -80,6 +80,10 @@ class Settings(context: Context) {
     var syncUsername: String
         get() = preferences.getString("sync-username", "") ?: ""
         set(value) = preferences.edit().putString("sync-username", value).apply()
+    /** When the Discord token last changed, so sync keeps the most recent one across devices. */
+    var discordTokenChanged: Long
+        get() = preferences.getLong("discord-token-changed", 0)
+        set(value) = preferences.edit().putLong("discord-token-changed", value).apply()
 }
 
 /** The saved library, persisted on every change like the desktop app. */

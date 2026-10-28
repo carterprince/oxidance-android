@@ -3,6 +3,7 @@ package io.github.oxidance
 import android.net.ConnectivityManager
 import android.net.Network
 import io.github.oxidance.core.Dav
+import io.github.oxidance.core.DiscordToken
 import io.github.oxidance.core.Library
 import io.github.oxidance.core.Sync
 import java.io.File
@@ -88,9 +89,11 @@ class SyncManager(private val app: App) {
         again = false
         set(true, false, "Syncing…")
         val snapshot = app.library.value
+        val discord = app.discord.saved?.let { DiscordToken(it, app.settings.discordTokenChanged) }
         val current = generation
         app.scope.launch(Dispatchers.IO) {
             val result = runCatching {
+                discord?.let { Sync.syncDiscordToken(dav, it) }?.let { newer -> if (generation == current) app.discord.adopt(newer) }
                 Sync.cycle(dav, snapshot, baseFile, app.musicDirectory,
                     onMerged = { merged -> if (generation == current) apply(snapshot, merged) },
                     onProgress = { detail -> if (generation == current) set(true, false, detail) })

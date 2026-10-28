@@ -3,6 +3,7 @@ package io.github.oxidance
 import android.util.Log
 import io.github.oxidance.core.DISCORD_APPLICATION_ID
 import io.github.oxidance.core.DiscordActivity
+import io.github.oxidance.core.DiscordToken
 import io.github.oxidance.core.discordPresence
 import io.github.oxidance.core.discordStatus
 import java.io.IOException
@@ -80,23 +81,38 @@ class DiscordPresence(private val app: App) {
     private val artPaths = ConcurrentHashMap<String, String>()
     private val artLoads = ConcurrentHashMap<String, Boolean>()
 
+    /** The stored token, empty when there is none, or null until it is loaded, so sync doesn't mistake that for a removal. */
+    @Volatile var saved: String? = null
+        private set
+
     fun restore() {
         scope.launch {
-            val saved = withContext(Dispatchers.IO) { secrets.get(KEY) } ?: return@launch
+            val token = withContext(Dispatchers.IO) { secrets.get(KEY) }
+            // A token saved before sync existed counts as the oldest change, so any newer one replaces it.
+            if (token != null && app.settings.discordTokenChanged == 0L) app.settings.discordTokenChanged = 1
+            saved = token.orEmpty()
+            if (token == null) return@launch
             tokenState.value = Token.SAVED
-            use(saved)
+            use(token)
         }
     }
 
-    /** Stores the token encrypted, or forgets it when blank, and signs in with it. */
+    /** Stores the token encrypted, or forgets it when blank, signs in with it, and shares it through sync. */
     suspend fun save(token: String): Result<Unit> = withContext(Dispatchers.IO) {
-        val trimmed = token.trim()
-        runCatching {
-            if (trimmed.isEmpty()) secrets.remove(KEY) else secrets.put(KEY, trimmed)
-            tokenState.value = if (trimmed.isEmpty()) Token.MISSING else Token.SAVED
-            scope.launch { use(trimmed.ifEmpty { null }) }
-            Unit
-        }
+        runCatching { store(token.trim(), System.currentTimeMillis()) }.onSuccess { app.sync.requestSoon() }
+    }
+
+    /** Uses a token that another device set more recently, received through sync. */
+    fun adopt(newer: DiscordToken) {
+        runCatching { store(newer.token, newer.changed) }.onFailure { app.toast("Could not save the synced Discord token: ${it.message}") }
+    }
+
+    private fun store(token: String, changed: Long) {
+        if (token.isEmpty()) secrets.remove(KEY) else secrets.put(KEY, token)
+        saved = token
+        app.settings.discordTokenChanged = changed
+        tokenState.value = if (token.isEmpty()) Token.MISSING else Token.SAVED
+        scope.launch { use(token.ifEmpty { null }) }
     }
 
     /** Shows `next` on Discord, or nothing while paused. Ignores timeline jitter so it is cheap to call often. */

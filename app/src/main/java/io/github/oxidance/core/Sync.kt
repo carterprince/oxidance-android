@@ -10,10 +10,29 @@ import kotlinx.serialization.json.Json
 @Serializable
 private data class Base(val url: String, val library: Library)
 
+/** The Discord token and when it was last set, in milliseconds. An empty token records that it was removed. */
+@Serializable
+data class DiscordToken(val token: String, val changed: Long)
+
 /** Merges the library and transfers songs through a WebDAV server, compatible with the desktop app. */
 object Sync {
     private const val LIBRARY = "library.json"
+    private const val DISCORD = "discord.json"
     private val compact = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    /**
+     * Keeps whichever device changed the Discord token most recently, like the desktop app.
+     * Returns the server's token when it is newer than this device's.
+     */
+    fun syncDiscordToken(dav: Dav, local: DiscordToken): DiscordToken? {
+        val remote = dav.get(DISCORD)?.let { runCatching { compact.decodeFromString(DiscordToken.serializer(), String(it)) }.getOrNull() }
+        return when {
+            remote != null && remote.changed > local.changed -> remote.takeIf { it.token != local.token }
+            remote != null && (remote.changed == local.changed || remote.token == local.token) -> null
+            remote == null && local.changed == 0L -> null
+            else -> { dav.put(DISCORD, LibraryJson.encodeToString(DiscordToken.serializer(), local).toByteArray()); null }
+        }
+    }
 
     fun loadBase(file: File, url: String): Library? = try {
         compact.decodeFromString(Base.serializer(), file.readText()).takeIf { it.url == url }?.library

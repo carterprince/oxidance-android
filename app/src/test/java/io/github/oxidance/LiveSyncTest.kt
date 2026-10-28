@@ -1,6 +1,7 @@
 package io.github.oxidance
 
 import io.github.oxidance.core.Dav
+import io.github.oxidance.core.DiscordToken
 import io.github.oxidance.core.Downloads
 import io.github.oxidance.core.Library
 import io.github.oxidance.core.Song
@@ -12,6 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -72,6 +74,19 @@ class LiveSyncTest {
             // An emptied local library is treated as a fresh device, not a mass deletion.
             cycle(Library(), second)
             assertTrue(base(second).isLiked(song("one")))
+            // The most recently changed Discord token wins, including a removal.
+            val older = DiscordToken("old", 1)
+            val newer = DiscordToken("new", 2)
+            assertNull("nothing to share yet", Sync.syncDiscordToken(dav, DiscordToken("", 0)))
+            assertFalse(File(served, "discord.json").exists())
+            assertNull(Sync.syncDiscordToken(dav, older))
+            assertNull(Sync.syncDiscordToken(dav, newer))
+            assertEquals(newer, Sync.syncDiscordToken(dav, older))
+            assertEquals("a new device receives it", newer, Sync.syncDiscordToken(dav, DiscordToken("", 0)))
+            assertNull(Sync.syncDiscordToken(dav, newer))
+            val removed = DiscordToken("", 3)
+            assertNull(Sync.syncDiscordToken(dav, removed))
+            assertEquals(removed, Sync.syncDiscordToken(dav, newer))
             // A brand-new device has no data directory yet.
             val fresh = File(root, "fresh/oxidance")
             Sync.cycle(dav, Library(), File(fresh, "sync-base.json"), File(root, "fresh/Music"), {}, {})
